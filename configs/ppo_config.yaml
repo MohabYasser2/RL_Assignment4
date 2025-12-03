@@ -39,32 +39,60 @@ CartPole-v1:
   max_episodes: 2000
 
 Acrobot-v1:
+  # Acrobot-specific hyperparameters (optimized for sparse rewards)
   discount_factor: 0.99
-  epsilon_decay: 0.995
-  learning_rate: 0.0003
-  replay_memory_size: 2048
-  batch_size: 64
-  n_epochs: 10
+  epsilon_decay: 0.995 # unused
+
+  # Optimizer - higher LR for sparse reward environment
+  learning_rate: 0.001 # 1e-3 for faster learning in sparse rewards
+
+  # Rollout collection - larger for Acrobot due to longer episodes
+  replay_memory_size: 256 # 256 steps per update (episodes ~100-500 steps)
+
+  # Minibatching
+  batch_size: 64 # 256 / 4 = 64
+  n_epochs: 10 # More epochs for difficult environment
+
+  # PPO clipping
   clip_range: 0.2
-  gae_lambda: 0.95
-  entropy_coef: 0.01
+  clip_vloss: true
+
+  # GAE - higher lambda for credit assignment over longer horizons
+  gae_lambda: 0.98
+
+  # Loss coefficients - HIGH entropy for exploration
+  entropy_coef: 0.01 # Strong exploration needed
+  entropy_coef_final: 0.001 # Gradually reduce
   value_loss_coef: 0.5
   max_grad_norm: 0.5
-  episodes: 1000
+
+  # Annealing
+  total_updates: 20000
+
+  # Convergence - Acrobot solved at -100 average
+  convergence_threshold: -90.0
+  convergence_window: 100
+  min_episodes: 200
+  max_episodes: 3000
 
 MountainCar-v0:
-  discount_factor: 0.99
-  epsilon_decay: 0.998
-  learning_rate: 0.0003
-  replay_memory_size: 2048
-  batch_size: 64
-  n_epochs: 10
-  clip_range: 0.2
-  gae_lambda: 0.95
-  entropy_coef: 0.05 # Higher entropy for exploration in sparse reward environment
+  MountainCar-v0:
+  discount_factor: 0.99 # use 0.99 instead of 0.999
+  learning_rate: 0.00005 # maybe smaller than 0.0001 to stabilise
+  replay_memory_size: 1024 # larger rollout maybe helps (or use 256 with vector envs)
+  batch_size: 256 # larger minibatch
+  n_epochs: 4 # fewer epochs to reduce over-fitting
+  clip_range: 0.1 # acceptable as you have
+  gae_lambda: 0.98 # close to reference
+  entropy_coef: 0.0 # try zero or very small (0.01)
   value_loss_coef: 0.5
   max_grad_norm: 0.5
-  episodes: 2000
+  total_updates: 10000 # maybe less extreme than 50k
+  convergence_threshold: -110.0
+  convergence_window: 100
+  min_episodes: 500
+  max_episodes: 10000
+  num_envs: 16 # use vectorized envs to help with exploration
 
 Pendulum-v1:
   discount_factor: 0.99

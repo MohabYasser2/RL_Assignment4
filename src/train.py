@@ -3,6 +3,7 @@ Main training script for RL algorithms.
 
 This script handles training of A2C, SAC, and PPO algorithms on various
 Gymnasium environments with Weights & Biases logging.
+Supports both single and parallel vectorized environments.
 """
 
 import argparse
@@ -11,6 +12,7 @@ import sys
 from pathlib import Path
 import yaml
 import torch
+import gymnasium as gym
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent))
@@ -126,9 +128,61 @@ def main():
     config = load_config(args.algorithm, args.environment)
     print(f"Configuration: {config}")
     
-    # Initialize environment
+    # Initialize environment (single or parallel)
     print(f"Initializing environment: {args.environment}")
-    env = EnvironmentWrapper(args.environment)
+    num_envs = config.get('num_envs', 1)
+    
+    if num_envs > 1:
+        # Create parallel vectorized environments
+        print(f"Creating {num_envs} parallel environments...")
+        
+        def make_env(env_id, seed, idx):
+            """Create a single environment with unique seed."""
+            def thunk():
+                env = gym.make(env_id)
+                env.action_space.seed(seed + idx)
+                env.observation_space.seed(seed + idx)
+                return env
+            return thunk
+        
+        envs = gym.vector.SyncVectorEnv([
+            make_env(args.environment, args.seed, i) for i in range(num_envs)
+        ])
+        
+        # Wrap in a simple interface for compatibility
+        class VectorEnvWrapper:
+            def __init__(self, envs):
+                self.envs = envs
+                self.is_discrete_action = isinstance(envs.single_action_space, gym.spaces.Discrete)
+                self.num_envs = envs.num_envs
+                
+            def reset(self):
+                obs, info = self.envs.reset()
+                return obs, info
+                
+            def step(self, action):
+                return self.envs.step(action)
+                
+            def close(self):
+                self.envs.close()
+                
+            def get_state_dim(self):
+                return self.envs.single_observation_space.shape[0]
+                
+            def get_action_dim(self):
+                if self.is_discrete_action:
+                    return self.envs.single_action_space.n
+                else:
+                    return self.envs.single_action_space.shape[0]
+        
+        env = VectorEnvWrapper(envs)
+        print(f"Using {num_envs} parallel environments")
+    else:
+        # Single environment
+        env = EnvironmentWrapper(args.environment)
+        env.num_envs = 1  # Add for consistency
+        print("Using single environment")
+    
     print(env)
     
     # Get state and action dimensions
