@@ -1,0 +1,10 @@
+Test Results for PPO on Pendulum-v1
+==================================================
+mean_reward: -175.24500743805834
+std_reward: 97.73528001757039
+min_reward: -521.3676134241174
+max_reward: -3.3536488304674013
+mean_duration: 200.0
+std_duration: 0.0
+min_duration: 200
+max_duration: 200

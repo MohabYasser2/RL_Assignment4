@@ -39,43 +39,118 @@ CartPole-v1:
   max_episodes: 2000
 
 Acrobot-v1:
+  # Acrobot-specific hyperparameters (optimized for sparse rewards)
   discount_factor: 0.99
-  epsilon_decay: 0.995
-  learning_rate: 0.0003
-  replay_memory_size: 2048
-  batch_size: 64
-  n_epochs: 10
+  epsilon_decay: 0.995 # unused
+
+  # Optimizer - higher LR for sparse reward environment
+  learning_rate: 0.001 # 1e-3 for faster learning in sparse rewards
+
+  # Rollout collection - larger for Acrobot due to longer episodes
+  replay_memory_size: 256 # 256 steps per update (episodes ~100-500 steps)
+
+  # Minibatching
+  batch_size: 64 # 256 / 4 = 64
+  n_epochs: 10 # More epochs for difficult environment
+
+  # PPO clipping
   clip_range: 0.2
-  gae_lambda: 0.95
-  entropy_coef: 0.01
+  clip_vloss: true
+
+  # GAE - higher lambda for credit assignment over longer horizons
+  gae_lambda: 0.98
+
+  # Loss coefficients - HIGH entropy for exploration
+  entropy_coef: 0.01 # Strong exploration needed
+  entropy_coef_final: 0.001 # Gradually reduce
   value_loss_coef: 0.5
   max_grad_norm: 0.5
-  episodes: 1000
+
+  # Annealing
+  total_updates: 20000
+
+  # Convergence - Acrobot solved at -100 average
+  convergence_threshold: -90.0
+  convergence_window: 100
+  min_episodes: 200
+  max_episodes: 3000
 
 MountainCar-v0:
-  discount_factor: 0.99
-  epsilon_decay: 0.998
-  learning_rate: 0.0003
-  replay_memory_size: 2048
-  batch_size: 64
-  n_epochs: 10
+  # MountainCar is EXTREMELY hard for PPO - requires careful tuning
+  discount_factor: 0.9999 # Very high gamma for long credit assignment
+  epsilon_decay: 0.995 # unused
+
+  # Optimizer - VERY small LR for stability
+  learning_rate: 0.0001 # 1e-4
+
+  # Parallel environments - CRITICAL for MountainCar
+  num_envs: 4 # Train with 4 parallel environments
+
+  # Rollout collection - with 4 envs, 128 steps per env = 512 total
+  replay_memory_size: 128 # Steps per environment
+
+  # Minibatching - batch_size = num_envs * replay_memory_size / num_minibatches
+  batch_size: 128 # 512 / 4 = 128
+  n_epochs: 10 # More epochs needed for hard environment
+
+  # PPO clipping
   clip_range: 0.2
-  gae_lambda: 0.95
-  entropy_coef: 0.05 # Higher entropy for exploration in sparse reward environment
+  clip_vloss: true
+
+  # GAE - very high for long-term credit
+  gae_lambda: 0.99
+
+  # Loss coefficients - HIGH entropy crucial for exploration
+  entropy_coef: 0.0 # Start with exploration
+  entropy_coef_final: 0.0 # Keep it
   value_loss_coef: 0.5
   max_grad_norm: 0.5
-  episodes: 2000
+
+  # Annealing
+  total_updates: 50000 # Many updates needed
+
+  # Convergence - MountainCar solved at -110 average
+  convergence_threshold: -110.0
+  convergence_window: 100
+  min_episodes: 500
+  max_episodes: 10000
 
 Pendulum-v1:
-  discount_factor: 0.99
-  epsilon_decay: 0.995
-  learning_rate: 0.0003
-  replay_memory_size: 2048
-  batch_size: 64
-  n_epochs: 10
+  # Pendulum with DISCRETE actions (5 discrete bins from -2 to 2)
+  discount_factor: 0.99 # Gamma from reference
+  epsilon_decay: 0.995 # unused
+
+  # Optimizer
+  learning_rate: 0.0003 # 3e-4
+
+  # Network architecture
+  hidden_dim: 128 # Hidden Dim from reference
+
+  # Rollout collection
+  replay_memory_size: 4096 # Smaller rollout for discrete actions
+
+  # Minibatching
+  batch_size: 128 # 4096 / 32 = 128
+  n_epochs: 10 # Standard PPO value
+
+  # PPO clipping
   clip_range: 0.2
+  clip_vloss: true
+
+  # GAE
   gae_lambda: 0.95
-  entropy_coef: 0.0 # Lower entropy for continuous control
+
+  # Loss coefficients - higher entropy for discrete action exploration
+  entropy_coef: 0.01 # Entropy for discrete exploration
+  entropy_coef_final: 0.001 # Gradually reduce
   value_loss_coef: 0.5
   max_grad_norm: 0.5
-  episodes: 500
+
+  # Annealing
+  total_updates: 10000
+
+  # Convergence - Discrete actions achieve around -200 to -250
+  convergence_threshold: -200.0
+  convergence_window: 100
+  min_episodes: 100
+  max_episodes: 2000

@@ -1,0 +1,10 @@
+Test Results for PPO on Acrobot-v1
+==================================================
+mean_reward: -82.73
+std_reward: 16.317999264615747
+min_reward: -187.0
+max_reward: -68.0
+mean_duration: 83.73
+std_duration: 16.317999264615747
+min_duration: 69
+max_duration: 188

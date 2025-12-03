@@ -39,20 +39,20 @@ rl_env/
 *.ipynb
 
 # Model files (except we want to keep the directory)
-models/*.pth
-models/*.pt
-!models/.gitkeep
+# models/*.pth
+# models/*.pt
+# !models/.gitkeep
 
 # Video files
-videos/*.mp4
-videos/*.avi
-!videos/.gitkeep
+# videos/*.mp4
+# videos/*.avi
+# !videos/.gitkeep
 
 # Results
-results/*.png
-results/*.txt
-results/*.csv
-!results/.gitkeep
+# results/*.png
+# results/*.txt
+# results/*.csv
+# !results/.gitkeep
 
 # Weights & Biases
 wandb/

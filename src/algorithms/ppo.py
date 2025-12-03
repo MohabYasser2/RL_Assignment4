@@ -23,7 +23,7 @@ class ActorCritic(nn.Module):
     The critic outputs a value estimate for the current state.
     """
     
-    def __init__(self, state_dim: int, action_dim: int, continuous: bool = False):
+    def __init__(self, state_dim: int, action_dim: int, continuous: bool = False, hidden_dim: int = 64):
         """
         Initialize Actor-Critic networks.
         
@@ -31,6 +31,7 @@ class ActorCritic(nn.Module):
             state_dim: Dimension of state space
             action_dim: Dimension of action space
             continuous: Whether action space is continuous
+            hidden_dim: Hidden layer dimension (default: 64, use 128 for Pendulum)
         """
         super(ActorCritic, self).__init__()
         
@@ -40,30 +41,30 @@ class ActorCritic(nn.Module):
         # Actor network
         if continuous:
             self.actor = nn.Sequential(
-                self._layer_init(nn.Linear(state_dim, 64)),
+                self._layer_init(nn.Linear(state_dim, hidden_dim)),
                 nn.Tanh(),
-                self._layer_init(nn.Linear(64, 64)),
+                self._layer_init(nn.Linear(hidden_dim, hidden_dim)),
                 nn.Tanh(),
-                self._layer_init(nn.Linear(64, action_dim), std=0.01)
+                self._layer_init(nn.Linear(hidden_dim, action_dim), std=0.01)
             )
             self.actor_log_std = nn.Parameter(torch.zeros(action_dim))
         else:
             # Discrete action space
             self.actor = nn.Sequential(
-                self._layer_init(nn.Linear(state_dim, 64)),
+                self._layer_init(nn.Linear(state_dim, hidden_dim)),
                 nn.Tanh(),
-                self._layer_init(nn.Linear(64, 64)),
+                self._layer_init(nn.Linear(hidden_dim, hidden_dim)),
                 nn.Tanh(),
-                self._layer_init(nn.Linear(64, action_dim), std=0.01)
+                self._layer_init(nn.Linear(hidden_dim, action_dim), std=0.01)
             )
         
         # Critic network (separate from actor)
         self.critic = nn.Sequential(
-            self._layer_init(nn.Linear(state_dim, 64)),
+            self._layer_init(nn.Linear(state_dim, hidden_dim)),
             nn.Tanh(),
-            self._layer_init(nn.Linear(64, 64)),
+            self._layer_init(nn.Linear(hidden_dim, hidden_dim)),
             nn.Tanh(),
-            self._layer_init(nn.Linear(64, 1), std=1.0)
+            self._layer_init(nn.Linear(hidden_dim, 1), std=1.0)
         )
     
     def _layer_init(self, layer, std=np.sqrt(2), bias_const=0.0):
@@ -210,9 +211,10 @@ class PPO:
         self.entropy_coef_final = config.get('entropy_coef_final', self.entropy_coef * 0.1)
         self.max_grad_norm = config.get('max_grad_norm', 0.5)
         self.clip_vloss = config.get('clip_vloss', True)  # Value function clipping
+        self.hidden_dim = config.get('hidden_dim', 64)  # Hidden layer size
         
         # Initialize networks
-        self.actor_critic = ActorCritic(state_dim, action_dim, continuous).to(self.device)
+        self.actor_critic = ActorCritic(state_dim, action_dim, continuous, hidden_dim=self.hidden_dim).to(self.device)
         
         # Initialize optimizer (eps=1e-5 like CleanRL for better stability)
         self.optimizer = torch.optim.Adam(self.actor_critic.parameters(), lr=self.lr, eps=1e-5)
@@ -449,15 +451,20 @@ class PPO:
     def train(self, env, config: Dict[str, Any], logger=None) -> Dict[str, Any]:
         """
         Train the PPO agent until convergence or max episodes.
+        Supports both single and vectorized environments.
         
         Args:
-            env: Environment to train on
+            env: Environment to train on (single or vectorized)
             config: Configuration dictionary containing convergence criteria or num_episodes
             logger: Optional W&B logger
             
         Returns:
             Dictionary containing training metrics and statistics
         """
+        # Check if using vectorized environment
+        num_envs = getattr(env, 'num_envs', 1)
+        is_vectorized = num_envs > 1
+        
         # Check if using convergence-based training
         use_convergence = 'convergence_threshold' in config
         
@@ -472,9 +479,17 @@ class PPO:
             max_episodes = config.get('episodes', config.get('num_episodes', 1000))
             print(f"Training for {max_episodes} episodes...")
         
-        state, _ = env.reset()
-        episode_reward = 0
-        episode_length = 0
+        if is_vectorized:
+            print(f"Using {num_envs} parallel environments")
+            # For vectorized envs, track episodes per environment
+            states, _ = env.reset()
+            episode_rewards = np.zeros(num_envs)
+            episode_lengths = np.zeros(num_envs, dtype=int)
+        else:
+            state, _ = env.reset()
+            episode_reward = 0
+            episode_length = 0
+        
         episode_count = 0
         total_steps = 0
         
@@ -488,81 +503,168 @@ class PPO:
         while episode_count < max_episodes and not converged:
             # Collect trajectory
             for _ in range(self.trajectory_length):
-                # Select action
-                action, log_prob, value = self.select_action(state, deterministic=False)
+                if is_vectorized:
+                    # Vectorized environment handling
+                    actions = []
+                    log_probs = []
+                    values = []
+                    
+                    for i in range(num_envs):
+                        action, log_prob, value = self.select_action(states[i], deterministic=False)
+                        actions.append(action)
+                        log_probs.append(log_prob)
+                        values.append(value)
+                    
+                    actions = np.array(actions)
+                    log_probs = np.array(log_probs)
+                    values = np.array(values)
+                    
+                    # Take steps in all environments
+                    next_states, rewards, terminateds, truncateds, _ = env.step(actions)
+                    dones = terminateds | truncateds
+                    
+                    # Store transitions for each environment
+                    for i in range(num_envs):
+                        self.buffer.store(states[i], actions[i], log_probs[i], 
+                                        rewards[i], values[i], dones[i])
+                        
+                        episode_rewards[i] += rewards[i]
+                        episode_lengths[i] += 1
+                        total_steps += 1
+                        
+                        if dones[i]:
+                            # Episode finished in environment i
+                            self.episode_rewards.append(episode_rewards[i])
+                            self.episode_lengths.append(episode_lengths[i])
+                            recent_rewards.append(episode_rewards[i])
+                            if len(recent_rewards) > 100:
+                                recent_rewards.pop(0)
+                            
+                            avg_reward = np.mean(recent_rewards)
+                            
+                            # Log to W&B
+                            if logger:
+                                logger.log_episode(
+                                    episode=episode_count,
+                                    reward=episode_rewards[i],
+                                    duration=episode_lengths[i],
+                                    average_reward=avg_reward
+                                )
+                            
+                            episode_count += 1
+                            pbar.update(1)
+                            pbar.set_postfix({
+                                'episode': episode_count,
+                                'reward': f'{episode_rewards[i]:.2f}',
+                                'avg_reward': f'{avg_reward:.2f}',
+                                'length': episode_lengths[i]
+                            })
+                            
+                            # Check for convergence
+                            if use_convergence and episode_count >= min_episodes:
+                                if len(recent_rewards) >= convergence_window:
+                                    window_avg = np.mean(recent_rewards[-convergence_window:])
+                                    if window_avg >= convergence_threshold:
+                                        converged = True
+                                        print(f"\nConverged! Average reward {window_avg:.2f} >= {convergence_threshold:.2f}")
+                            
+                            # Reset this environment
+                            episode_rewards[i] = 0
+                            episode_lengths[i] = 0
+                            
+                            if episode_count >= max_episodes or converged:
+                                break
+                    
+                    states = next_states
+                    
+                else:
+                    # Single environment handling (original code)
+                    action, log_prob, value = self.select_action(state, deterministic=False)
+                    
+                    # Take step in environment
+                    next_state, reward, terminated, truncated, _ = env.step(action)
+                    done = terminated or truncated
+                    
+                    # Store transition
+                    self.buffer.store(state, action, log_prob, reward, value, done)
+                    
+                    state = next_state
+                    episode_reward += reward
+                    episode_length += 1
+                    total_steps += 1
+                    
+                    if done:
+                        # Episode finished
+                        self.episode_rewards.append(episode_reward)
+                        self.episode_lengths.append(episode_length)
+                        recent_rewards.append(episode_reward)
+                        if len(recent_rewards) > 100:
+                            recent_rewards.pop(0)
+                        
+                        avg_reward = np.mean(recent_rewards)
+                        
+                        # Log to W&B
+                        if logger:
+                            logger.log_episode(
+                                episode=episode_count,
+                                reward=episode_reward,
+                                duration=episode_length,
+                                average_reward=avg_reward
+                            )
+                        
+                        episode_count += 1
+                        pbar.update(1)
+                        pbar.set_postfix({
+                            'episode': episode_count,
+                            'reward': f'{episode_reward:.2f}',
+                            'avg_reward': f'{avg_reward:.2f}',
+                            'length': episode_length
+                        })
+                        
+                        # Check for convergence
+                        if use_convergence and episode_count >= min_episodes:
+                            if len(recent_rewards) >= convergence_window:
+                                window_avg = np.mean(recent_rewards[-convergence_window:])
+                                if window_avg >= convergence_threshold:
+                                    converged = True
+                                    print(f"\nConverged! Average reward {window_avg:.2f} >= {convergence_threshold:.2f}")
+                        
+                        # Reset for next episode
+                        state, _ = env.reset()
+                        episode_reward = 0
+                        episode_length = 0
+                        
+                        if episode_count >= max_episodes or converged:
+                            break
                 
-                # Take step in environment
-                next_state, reward, terminated, truncated, _ = env.step(action)
-                done = terminated or truncated
-                
-                # Store transition
-                self.buffer.store(state, action, log_prob, reward, value, done)
-                
-                state = next_state
-                episode_reward += reward
-                episode_length += 1
-                total_steps += 1
-                
-                if done:
-                    # Episode finished
-                    self.episode_rewards.append(episode_reward)
-                    self.episode_lengths.append(episode_length)
-                    recent_rewards.append(episode_reward)
-                    if len(recent_rewards) > 100:
-                        recent_rewards.pop(0)
-                    
-                    avg_reward = np.mean(recent_rewards)
-                    
-                    # Log to W&B
-                    if logger:
-                        logger.log_episode(
-                            episode=episode_count,
-                            reward=episode_reward,
-                            duration=episode_length,
-                            average_reward=avg_reward
-                        )
-                    
-                    episode_count += 1
-                    pbar.update(1)
-                    pbar.set_postfix({
-                        'episode': episode_count,
-                        'reward': f'{episode_reward:.2f}',
-                        'avg_reward': f'{avg_reward:.2f}',
-                        'length': episode_length
-                    })
-                    
-                    # Check for convergence
-                    if use_convergence and episode_count >= min_episodes:
-                        if len(recent_rewards) >= convergence_window:
-                            window_avg = np.mean(recent_rewards[-convergence_window:])
-                            if window_avg >= convergence_threshold:
-                                converged = True
-                                print(f"\nConverged! Average reward {window_avg:.2f} >= {convergence_threshold:.2f}")
-                    
-                    # Reset for next episode
-                    state, _ = env.reset()
-                    episode_reward = 0
-                    episode_length = 0
-                    
-                    if episode_count >= max_episodes or converged:
-                        break
+                if episode_count >= max_episodes or converged:
+                    break
             
             # Get value estimate for last state (for bootstrapping)
-            if done:
-                next_value = 0.0
-            else:
+            if is_vectorized:
+                # For vectorized envs, get values for all current states
                 with torch.no_grad():
-                    state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-                    next_value = self.actor_critic.get_value(state_tensor).item()
+                    states_tensor = torch.FloatTensor(states).to(self.device)
+                    next_values = self.actor_critic.get_value(states_tensor).cpu().numpy()
+                # Use average for simplicity (could be more sophisticated)
+                next_value = np.mean(next_values)
+            else:
+                # Single environment
+                if done:
+                    next_value = 0.0
+                else:
+                    with torch.no_grad():
+                        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+                        next_value = self.actor_critic.get_value(state_tensor).item()
             
             # Get trajectory data
-            states, actions, log_probs, rewards, values, dones = self.buffer.get()
+            states_batch, actions_batch, log_probs_batch, rewards_batch, values_batch, dones_batch = self.buffer.get()
             
             # Compute advantages and returns using GAE
-            advantages, returns = self.compute_gae(rewards, values, dones, next_value)
+            advantages, returns = self.compute_gae(rewards_batch, values_batch, dones_batch, next_value)
             
             # Perform PPO update (pass old values for value clipping)
-            update_info = self.update(states, actions, log_probs, values, returns, advantages)
+            update_info = self.update(states_batch, actions_batch, log_probs_batch, values_batch, returns, advantages)
             
             # Log update metrics
             if logger and episode_count > 0:
@@ -680,7 +782,7 @@ class PPO:
         Args:
             path: Path to load the model from
         """
-        checkpoint = torch.load(path, map_location=self.device)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
         self.actor_critic.load_state_dict(checkpoint['actor_critic_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         if 'episode_rewards' in checkpoint:
