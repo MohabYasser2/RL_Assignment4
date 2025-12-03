@@ -150,7 +150,7 @@ Pendulum-v1:
   total_updates: 10000
 
   # Convergence - Discrete actions achieve around -200 to -250
-  convergence_threshold: -250.0
+  convergence_threshold: -200.0
   convergence_window: 100
   min_episodes: 100
-  max_episodes: 1000
+  max_episodes: 2000

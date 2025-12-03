@@ -43,6 +43,12 @@ class DiscretePendulum(gym.ActionWrapper):
         Returns:
             np.ndarray: Continuous action value
         """
+        # Ensure action is an integer index
+        if isinstance(action, np.ndarray):
+            action = int(action.item())
+        else:
+            action = int(action)
+        
         continuous_action = self.action_map[action]
         return np.array([continuous_action], dtype=np.float32)
 

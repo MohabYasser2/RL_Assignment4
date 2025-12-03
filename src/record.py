@@ -210,14 +210,13 @@ def main():
     
     # Initialize environment for recording (rgb_array mode for video)
     print(f"Initializing environment: {args.environment}")
-    base_env = gym.make(args.environment, render_mode='rgb_array')
+    base_env_wrapper = EnvironmentWrapper(args.environment, render_mode='rgb_array')
+    base_env = base_env_wrapper.env  # Get the wrapped environment
     
-    # Get state and action dimensions from a temporary environment
-    temp_env = EnvironmentWrapper(args.environment)
-    state_dim = temp_env.get_state_dim()
-    action_dim = temp_env.get_action_dim()
-    is_continuous = not temp_env.is_discrete_action
-    temp_env.close()
+    # Get state and action dimensions
+    state_dim = base_env_wrapper.get_state_dim()
+    action_dim = base_env_wrapper.get_action_dim()
+    is_continuous = not base_env_wrapper.is_discrete_action
     
     # Initialize algorithm
     print(f"Initializing {args.algorithm.upper()} algorithm...")
