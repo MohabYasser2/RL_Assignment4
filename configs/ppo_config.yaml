@@ -76,34 +76,84 @@ Acrobot-v1:
   max_episodes: 3000
 
 MountainCar-v0:
-  MountainCar-v0:
-  discount_factor: 0.99 # use 0.99 instead of 0.999
-  learning_rate: 0.00005 # maybe smaller than 0.0001 to stabilise
-  replay_memory_size: 1024 # larger rollout maybe helps (or use 256 with vector envs)
-  batch_size: 256 # larger minibatch
-  n_epochs: 4 # fewer epochs to reduce over-fitting
-  clip_range: 0.1 # acceptable as you have
-  gae_lambda: 0.98 # close to reference
-  entropy_coef: 0.0 # try zero or very small (0.01)
+  # MountainCar is EXTREMELY hard for PPO - requires careful tuning
+  discount_factor: 0.9999 # Very high gamma for long credit assignment
+  epsilon_decay: 0.995 # unused
+
+  # Optimizer - VERY small LR for stability
+  learning_rate: 0.0001 # 1e-4
+
+  # Parallel environments - CRITICAL for MountainCar
+  num_envs: 4 # Train with 4 parallel environments
+
+  # Rollout collection - with 4 envs, 128 steps per env = 512 total
+  replay_memory_size: 128 # Steps per environment
+
+  # Minibatching - batch_size = num_envs * replay_memory_size / num_minibatches
+  batch_size: 128 # 512 / 4 = 128
+  n_epochs: 10 # More epochs needed for hard environment
+
+  # PPO clipping
+  clip_range: 0.2
+  clip_vloss: true
+
+  # GAE - very high for long-term credit
+  gae_lambda: 0.99
+
+  # Loss coefficients - HIGH entropy crucial for exploration
+  entropy_coef: 0.0 # Start with exploration
+  entropy_coef_final: 0.0 # Keep it
   value_loss_coef: 0.5
   max_grad_norm: 0.5
-  total_updates: 10000 # maybe less extreme than 50k
+
+  # Annealing
+  total_updates: 50000 # Many updates needed
+
+  # Convergence - MountainCar solved at -110 average
   convergence_threshold: -110.0
   convergence_window: 100
   min_episodes: 500
   max_episodes: 10000
-  num_envs: 16 # use vectorized envs to help with exploration
 
 Pendulum-v1:
-  discount_factor: 0.99
-  epsilon_decay: 0.995
-  learning_rate: 0.0003
-  replay_memory_size: 2048
-  batch_size: 64
-  n_epochs: 10
+  # Pendulum with CONTINUOUS actions (reference parameters)
+  discount_factor: 0.99 # Gamma from reference
+  epsilon_decay: 0.995 # unused
+
+  # Optimizer - reference uses separate LR for actor/critic
+  # PPO typically uses single LR, using Actor LR as base
+  learning_rate: 0.0003 # Actor LR: 3e-4 (Critic LR: 1e-3 not used in standard PPO)
+
+  # Network architecture
+  hidden_dim: 128 # Hidden Dim from reference
+
+  # Rollout collection - reference uses 4096
+  replay_memory_size: 4096 # Rollout Length from reference
+
+  # Minibatching
+  batch_size: 128 # 4096 / 32 minibatches = 128
+  n_epochs: 10 # Standard PPO value
+
+  # PPO clipping
   clip_range: 0.2
+  clip_vloss: true
+
+  # GAE
   gae_lambda: 0.95
-  entropy_coef: 0.0 # Lower entropy for continuous control
+
+  # Loss coefficients - reference entropy
+  entropy_coef: 0.01 # Entropy Coef from reference
+  entropy_coef_final: 0.001 # Gradually reduce
   value_loss_coef: 0.5
   max_grad_norm: 0.5
-  episodes: 500
+
+  # Annealing
+  total_updates: 10000
+
+  # Convergence - Pendulum solved around -200 to -150
+  convergence_threshold: -200.0 # More conservative threshold
+  convergence_window: 100
+  min_episodes: 100
+  max_episodes: 1000 # Training Episodes from reference
+
+  continuous: true

@@ -23,7 +23,7 @@ class ActorCritic(nn.Module):
     The critic outputs a value estimate for the current state.
     """
     
-    def __init__(self, state_dim: int, action_dim: int, continuous: bool = False):
+    def __init__(self, state_dim: int, action_dim: int, continuous: bool = False, hidden_dim: int = 64):
         """
         Initialize Actor-Critic networks.
         
@@ -31,6 +31,7 @@ class ActorCritic(nn.Module):
             state_dim: Dimension of state space
             action_dim: Dimension of action space
             continuous: Whether action space is continuous
+            hidden_dim: Hidden layer dimension (default: 64, use 128 for Pendulum)
         """
         super(ActorCritic, self).__init__()
         
@@ -40,30 +41,30 @@ class ActorCritic(nn.Module):
         # Actor network
         if continuous:
             self.actor = nn.Sequential(
-                self._layer_init(nn.Linear(state_dim, 64)),
+                self._layer_init(nn.Linear(state_dim, hidden_dim)),
                 nn.Tanh(),
-                self._layer_init(nn.Linear(64, 64)),
+                self._layer_init(nn.Linear(hidden_dim, hidden_dim)),
                 nn.Tanh(),
-                self._layer_init(nn.Linear(64, action_dim), std=0.01)
+                self._layer_init(nn.Linear(hidden_dim, action_dim), std=0.01)
             )
             self.actor_log_std = nn.Parameter(torch.zeros(action_dim))
         else:
             # Discrete action space
             self.actor = nn.Sequential(
-                self._layer_init(nn.Linear(state_dim, 64)),
+                self._layer_init(nn.Linear(state_dim, hidden_dim)),
                 nn.Tanh(),
-                self._layer_init(nn.Linear(64, 64)),
+                self._layer_init(nn.Linear(hidden_dim, hidden_dim)),
                 nn.Tanh(),
-                self._layer_init(nn.Linear(64, action_dim), std=0.01)
+                self._layer_init(nn.Linear(hidden_dim, action_dim), std=0.01)
             )
         
         # Critic network (separate from actor)
         self.critic = nn.Sequential(
-            self._layer_init(nn.Linear(state_dim, 64)),
+            self._layer_init(nn.Linear(state_dim, hidden_dim)),
             nn.Tanh(),
-            self._layer_init(nn.Linear(64, 64)),
+            self._layer_init(nn.Linear(hidden_dim, hidden_dim)),
             nn.Tanh(),
-            self._layer_init(nn.Linear(64, 1), std=1.0)
+            self._layer_init(nn.Linear(hidden_dim, 1), std=1.0)
         )
     
     def _layer_init(self, layer, std=np.sqrt(2), bias_const=0.0):
@@ -210,9 +211,10 @@ class PPO:
         self.entropy_coef_final = config.get('entropy_coef_final', self.entropy_coef * 0.1)
         self.max_grad_norm = config.get('max_grad_norm', 0.5)
         self.clip_vloss = config.get('clip_vloss', True)  # Value function clipping
+        self.hidden_dim = config.get('hidden_dim', 64)  # Hidden layer size
         
         # Initialize networks
-        self.actor_critic = ActorCritic(state_dim, action_dim, continuous).to(self.device)
+        self.actor_critic = ActorCritic(state_dim, action_dim, continuous, hidden_dim=self.hidden_dim).to(self.device)
         
         # Initialize optimizer (eps=1e-5 like CleanRL for better stability)
         self.optimizer = torch.optim.Adam(self.actor_critic.parameters(), lr=self.lr, eps=1e-5)
