@@ -1,0 +1,10 @@
+Test Results for SAC on MountainCar-v0
+==================================================
+mean_reward: -200.0
+min_reward: -200.0
+max_reward: -200.0
+std_reward: 0.0
+mean_duration: 200.0
+min_duration: 200
+max_duration: 200
+std_duration: 0.0

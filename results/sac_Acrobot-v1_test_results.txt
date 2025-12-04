@@ -1,0 +1,10 @@
+Test Results for SAC on Acrobot-v1
+==================================================
+mean_reward: -79.43
+min_reward: -123.0
+max_reward: -61.0
+std_reward: 12.115490085011006
+mean_duration: 80.43
+min_duration: 62
+max_duration: 124
+std_duration: 12.115490085011006

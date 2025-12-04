@@ -160,7 +160,7 @@ class SAC:
     # -------------------------
     # SAC update step
     # -------------------------
-    def update_networks(self):
+    def update_networks(self,logger=None):
         states, actions, rewards, next_states, dones = self.sample_batch()
 
         # =============== Target Q =================
@@ -217,6 +217,20 @@ class SAC:
 
             self.alpha = float(self.log_alpha.exp().detach().cpu().item())
 
+        # W&B LOGGING
+# ===============================
+        if logger is not None:
+            logger.log({
+                    "loss/critic1": critic1_loss.item(),
+                    "loss/critic2": critic2_loss.item(),
+                    "loss/policy": actor_loss.item(),
+                    "q1_mean": q1.mean().item(),
+                    "q2_mean": q2.mean().item(),
+                    "v_target_mean": target_q.mean().item(),
+                    "entropy": float((-(probs * log_probs).sum(dim=1).mean()).item()),
+                    "epsilon": self.epsilon,
+                    "alpha": self.alpha,
+                })
         # Soft update targets
         self.soft_update(self.target1, self.critic1)
         self.soft_update(self.target2, self.critic2)
@@ -239,6 +253,7 @@ class SAC:
             state, _ = env.reset()
             done = False
             total = 0
+            steps = 0     
 
             while not done:
                 action = self.select_action(state)
@@ -249,9 +264,10 @@ class SAC:
                 self.store((state, action, reward, next_state, done))
                 state = next_state
                 total += reward
+                steps += 1   
 
                 if len(self.replay) >= self.batch_size:
-                    self.update_networks()
+                    self.update_networks(logger)
 
             # decay exploration
             self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
@@ -260,7 +276,8 @@ class SAC:
             print(f"Episode {ep}: Reward = {total}")
 
             if logger:
-                logger.log({"episode_reward": total})
+                logger.log({"episode_reward": total,
+                            "episode_length": steps})
 
         return {"rewards": rewards}
 
@@ -273,32 +290,42 @@ class SAC:
         This version supports both 'episodes' and 'num_episodes'
         so it works with test.py.
         """
+        
         # Use num_episodes if passed by test.py
         if num_episodes is not None:
             episodes = num_episodes
 
         scores = []
+        durations = []  
         for ep in range(episodes):
             s, _ = env.reset()
             done = False
             total = 0
+            steps = 0
 
             while not done:
                 a = self.select_action(s, deterministic=True)
                 s, r, term, trunc, _ = env.step(a)
                 total += r
+                steps += 1
                 done = term or trunc
 
             scores.append(total)
+            durations.append(steps)
             print(f"[TEST] Episode {ep}: Reward={total}")
 
         # Return detailed stats — test.py expects this dictionary:
         return {
             "episode_rewards": scores,
+            "episode_durations": durations, 
             "mean_reward": float(np.mean(scores)),
             "min_reward": float(np.min(scores)),
             "max_reward": float(np.max(scores)),
             "std_reward": float(np.std(scores)),
+            "mean_duration": float(np.mean(durations)), 
+            "min_duration": int(np.min(durations)),      
+            "max_duration": int(np.max(durations)),      
+            "std_duration": float(np.std(durations)),
         }
 
     def save(self, path):

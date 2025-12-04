@@ -1,0 +1,10 @@
+Test Results for SAC on Pendulum-v1
+==================================================
+mean_reward: -164.38612340450243
+min_reward: -371.87533610963874
+max_reward: -0.6024650312608592
+std_reward: 92.29515352730563
+mean_duration: 200.0
+min_duration: 200
+max_duration: 200
+std_duration: 0.0

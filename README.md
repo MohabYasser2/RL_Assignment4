@@ -3,11 +3,13 @@
 This project implements three popular reinforcement learning algorithms on classical Gymnasium environments, with a **fully functional PPO implementation**.
 
 ## Algorithms
-- **A2C** (Advantage Actor-Critic) - *Template provided*
-- **SAC** (Soft Actor-Critic) - *Template provided*
+
+- **A2C** (Advantage Actor-Critic) - _Template provided_
+- **SAC** (Soft Actor-Critic) - _Template provided_
 - **PPO** (Proximal Policy Optimization) - ✅ **Fully Implemented**
 
 ## Environments
+
 - CartPole-v1 (Discrete, Easy)
 - Acrobot-v1 (Discrete, Moderate)
 - MountainCar-v0 (Discrete, Sparse Rewards)
@@ -16,6 +18,7 @@ This project implements three popular reinforcement learning algorithms on class
 ## PPO Implementation Features
 
 ### Core Algorithm Components
+
 - **Actor-Critic Architecture**: Shared feature extraction with separate policy and value heads
 - **GAE (Generalized Advantage Estimation)**: For computing advantages with λ = 0.95
 - **Clipped Surrogate Objective**: PPO's signature clipping mechanism (ε = 0.2)
@@ -24,6 +27,7 @@ This project implements three popular reinforcement learning algorithms on class
 - **Gradient Clipping**: Prevents unstable updates
 
 ### Key Features
+
 - ✅ Support for both discrete and continuous action spaces
 - ✅ Automatic device selection (CPU/CUDA)
 - ✅ Progress bars with tqdm
@@ -72,6 +76,7 @@ python src/test.py --algorithm ppo --environment CartPole-v1 --save-results
 ```
 
 The `--save-results` flag will:
+
 - Save statistics to a text file
 - Export episode data to CSV
 - Generate performance distribution plots
@@ -113,35 +118,39 @@ python src/record.py --algorithm ppo --environment CartPole-v1 --episodes 5
 
 The configuration file (`configs/ppo_config.yaml`) includes optimized hyperparameters for each environment:
 
-| Hyperparameter | CartPole | Acrobot | MountainCar | Pendulum |
-|----------------|----------|---------|-------------|----------|
-| Learning Rate | 3e-4 | 3e-4 | 3e-4 | 3e-4 |
-| Trajectory Length | 2048 | 2048 | 2048 | 2048 |
-| Batch Size | 64 | 64 | 64 | 64 |
-| Epochs per Update | 10 | 10 | 10 | 10 |
-| Clip Range (ε) | 0.2 | 0.2 | 0.2 | 0.2 |
-| GAE Lambda (λ) | 0.95 | 0.95 | 0.95 | 0.95 |
-| Entropy Coef | 0.01 | 0.01 | 0.05 | 0.0 |
-| Max Episodes | 500 | 1000 | 2000 | 500 |
+| Hyperparameter    | CartPole | Acrobot | MountainCar | Pendulum |
+| ----------------- | -------- | ------- | ----------- | -------- |
+| Learning Rate     | 3e-4     | 3e-4    | 3e-4        | 3e-4     |
+| Trajectory Length | 2048     | 2048    | 2048        | 2048     |
+| Batch Size        | 64       | 64      | 64          | 64       |
+| Epochs per Update | 10       | 10      | 10          | 10       |
+| Clip Range (ε)    | 0.2      | 0.2     | 0.2         | 0.2      |
+| GAE Lambda (λ)    | 0.95     | 0.95    | 0.95        | 0.95     |
+| Entropy Coef      | 0.01     | 0.01    | 0.05        | 0.0      |
+| Max Episodes      | 500      | 1000    | 2000        | 500      |
 
 ## Expected Performance
 
 ### CartPole-v1
+
 - **Solved**: Average reward ≥ 195 over 100 episodes
 - **Training Time**: ~500 episodes
 - **Expected**: Agent should learn to balance the pole consistently
 
 ### Acrobot-v1
+
 - **Solved**: Average reward ≥ -100 over 100 episodes
 - **Training Time**: ~1000 episodes
 - **Expected**: Agent should swing up efficiently
 
 ### MountainCar-v0
+
 - **Solved**: Average reward ≥ -110 over 100 episodes
 - **Training Time**: ~2000 episodes (sparse rewards make this challenging)
 - **Expected**: Agent should learn momentum-based strategy
 
 ### Pendulum-v1
+
 - **Solved**: Average reward ≥ -200 over 100 episodes
 - **Training Time**: ~500 episodes
 - **Expected**: Smooth continuous control of pendulum
@@ -152,7 +161,7 @@ The configuration file (`configs/ppo_config.yaml`) includes optimized hyperparam
 
 1. **Rollout Phase**: Collect `trajectory_length` steps of experience
 2. **Advantage Computation**: Calculate GAE advantages
-3. **Policy Update**: 
+3. **Policy Update**:
    - Sample minibatches from collected data
    - Compute clipped surrogate objective
    - Update policy for `n_epochs` epochs
@@ -166,14 +175,14 @@ Actor-Critic Network:
   Shared Layers:
     Linear(state_dim → 64) + Tanh
     Linear(64 → 64) + Tanh
-  
+
   Actor Head (Discrete):
     Linear(64 → action_dim)
-  
+
   Actor Head (Continuous):
     Linear(64 → action_dim)  # mean
     Parameter(action_dim)     # log_std
-  
+
   Critic Head:
     Linear(64 → 1)
 ```
@@ -187,6 +196,7 @@ wandb login
 ```
 
 Tracked metrics:
+
 - Episode reward
 - Episode length
 - Actor loss
@@ -202,12 +212,15 @@ Quick test to verify PPO works:
 ```bash
 # Train for a few episodes on CartPole (fastest environment)
 python src/train.py --algorithm ppo --environment CartPole-v1 --no-wandb
+python src/train.py --algorithm sac --environment MountainCar-v0 --no-wandb
 
 # Test the trained model
-python src/test.py --algorithm ppo --environment CartPole-v1 --save-results
+python src/test.py --algorithm sac --environment CartPole-v1 --save-results
+python src/test.py --algorithm sac --environment Pendulum-v1 --save-results
+python src/test.py --algorithm sac --environment Acrobot-v1 --save-results
 
 # Record a video
-python src/record.py --algorithm ppo --environment CartPole-v1 --episodes 3
+python src/record.py --algorithm sac --environment CartPole-v1 --episodes 3
 ```
 
 ## Code Quality Features

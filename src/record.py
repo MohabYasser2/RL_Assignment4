@@ -116,7 +116,7 @@ def record_episodes(
         while not (done or truncated):
             # Select action using trained policy
             try:
-                action, log_prob, value = agent.select_action(state, deterministic=True)
+                action= agent.select_action(state, deterministic=True)
             except NotImplementedError:
                 print(f"Error: select_action() not implemented")
                 env_wrapped.close()
