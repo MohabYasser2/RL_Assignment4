@@ -1,50 +1,71 @@
-# SAC Configuration for different environments
-# Soft Actor-Critic algorithm hyperparameters
-
 CartPole-v1:
   discount_factor: 0.99
-  epsilon_decay: 0.995
-  learning_rate: 0.0003
-  replay_memory_size: 100000
+
+  actor_lr: 0.0003
+  critic_lr: 0.0007
+
+  replay_memory_size: 50000
   batch_size: 256
-  tau: 0.005
-  alpha: 0.2
-  automatic_entropy_tuning: true
-  target_update_interval: 1
-  episodes: 800
+  tau: 0.01
+
+  alpha: 0.0
+  automatic_entropy_tuning: false
+
+  epsilon_start: 1.0
+  epsilon_decay: 0.995
+  epsilon_min: 0.0
+
+  episodes: 700
 
 Acrobot-v1:
   discount_factor: 0.99
-  epsilon_decay: 0.995
-  learning_rate: 0.0003
-  replay_memory_size: 200000
+
+  actor_lr: 0.0005
+  critic_lr: 0.001
+
+  replay_memory_size: 30000
   batch_size: 256
   tau: 0.005
+
   alpha: 0.2
-  automatic_entropy_tuning: true
-  target_update_interval: 1
-  episodes: 1500
+  automatic_entropy_tuning: false
+
+  epsilon_start: 1.0
+  epsilon_decay: 0.997
+  epsilon_min: 0.05
+
+  episodes: 500
 
 MountainCar-v0:
   discount_factor: 0.99
-  epsilon_decay: 0.998
-  learning_rate: 0.0003
-  replay_memory_size: 200000
-  batch_size: 256
-  tau: 0.005
-  alpha: 0.3
-  automatic_entropy_tuning: true
-  target_update_interval: 1
-  episodes: 2500
 
-Pendulum-v1:
-  discount_factor: 0.99
-  epsilon_decay: 0.995
-  learning_rate: 0.0003
+  actor_lr: 0.0007
+  critic_lr: 0.001
+
   replay_memory_size: 100000
   batch_size: 256
   tau: 0.005
-  alpha: 0.2
-  automatic_entropy_tuning: true
-  target_update_interval: 1
+
+  alpha: 0.0
+  automatic_entropy_tuning: false
+
+  epsilon_start: 1.0
+  epsilon_decay: 0.999
+  epsilon_min: 0.05
+
+  episodes: 2000
+
+Pendulum-v1:
+  discount_factor: 0.97
+
+  actor_lr: 0.00025
+  critic_lr: 0.0005
+
+  replay_memory_size: 100000
+  batch_size: 256
+  tau: 0.005
+
+  alpha: 0.005
+  automatic_entropy_tuning: false
+
   episodes: 1000

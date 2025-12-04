@@ -1,0 +1,10 @@
+Test Results for SAC on CartPole-v1
+==================================================
+mean_reward: 500.0
+min_reward: 500.0
+max_reward: 500.0
+std_reward: 0.0
+mean_duration: 500.0
+min_duration: 500
+max_duration: 500
+std_duration: 0.0
