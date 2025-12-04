@@ -68,3 +68,5 @@ logs/
 # Temporary files
 *.tmp
 test_model.pth
+
+*.md
