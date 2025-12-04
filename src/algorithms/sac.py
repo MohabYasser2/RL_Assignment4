@@ -247,6 +247,8 @@ class SAC:
             config = self.cfg
 
         episodes = config.get("episodes", 500)
+        convergence_threshold = config.get("convergence_threshold", None)
+        convergence_window = config.get("convergence_window", 100)
         rewards = []
 
         for ep in range(episodes):
@@ -273,11 +275,28 @@ class SAC:
             self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
 
             rewards.append(total)
-            print(f"Episode {ep}: Reward = {total}")
+            
+            # Calculate running average
+            if len(rewards) >= convergence_window:
+                avg_reward = np.mean(rewards[-convergence_window:])
+            else:
+                avg_reward = np.mean(rewards)
+            
+            print(f"Episode {ep}: Reward = {total:.2f}, Avg ({convergence_window}): {avg_reward:.2f}")
 
             if logger:
                 logger.log({"episode_reward": total,
-                            "episode_length": steps})
+                            "episode_length": steps,
+                            "avg_reward": avg_reward})
+            
+            # Check convergence
+            if convergence_threshold is not None and len(rewards) >= convergence_window:
+                if avg_reward >= convergence_threshold:
+                    print(f"\n{'='*60}")
+                    print(f"CONVERGED! Average reward {avg_reward:.2f} >= {convergence_threshold}")
+                    print(f"Solved in {ep + 1} episodes!")
+                    print(f"{'='*60}\n")
+                    break
 
         return {"rewards": rewards}
 

@@ -16,6 +16,8 @@ CartPole-v1:
   epsilon_min: 0.0
 
   episodes: 700
+  convergence_threshold: 475.0
+  convergence_window: 100
 
 Acrobot-v1:
   discount_factor: 0.99
@@ -35,6 +37,8 @@ Acrobot-v1:
   epsilon_min: 0.05
 
   episodes: 500
+  convergence_threshold: -100.0
+  convergence_window: 100
 
 MountainCar-v0:
   discount_factor: 0.99
@@ -54,6 +58,8 @@ MountainCar-v0:
   epsilon_min: 0.05
 
   episodes: 2000
+  convergence_threshold: -110.0
+  convergence_window: 100
 
 Pendulum-v1:
   discount_factor: 0.97
@@ -69,3 +75,5 @@ Pendulum-v1:
   automatic_entropy_tuning: false
 
   episodes: 1000
+  convergence_threshold: -200.0
+  convergence_window: 100
